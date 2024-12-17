@@ -1,0 +1,74 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{3f9a344c-4253-428a-a501-5308bdf79e9a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Main Entry">
+      <UniqueIdentifier>{ef34e2b8-8baf-441b-826a-e9c4342f2e23}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="pch">
+      <UniqueIdentifier>{1634ea55-df97-4b96-b4fd-52a186aff3cb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Util">
+      <UniqueIdentifier>{552030de-4597-40d6-a1ac-9fbc1e4ce9b8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Renderer">
+      <UniqueIdentifier>{057bc12a-388b-457f-8266-66ca2255bc6e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Renderer\D3D12Renderer">
+      <UniqueIdentifier>{ecb2c535-8792-400b-8b43-6af8c96a8d4f}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Resource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="targetver.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="pch.h">
+      <Filter>pch</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D12Renderer.h">
+      <Filter>Renderer\D3D12Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D_Util\D3DUtil.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="ChDX12.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="small.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="ChDX12.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp">
+      <Filter>Main Entry</Filter>
+    </ClCompile>
+    <ClCompile Include="pch.cpp">
+      <Filter>pch</Filter>
+    </ClCompile>
+    <ClCompile Include="D3D12Renderer.cpp">
+      <Filter>Renderer\D3D12Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="D3D_Util\D3DUtil.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>
