@@ -27,7 +27,7 @@
 #include <dwrite.h>
 #include <d2d1_3.h>
 #include <d3dx12.h>
-
+#include <DirectXMath.h>
 #include <windows.h>
 
 // C RunTime Header Files

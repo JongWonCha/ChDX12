@@ -6,6 +6,7 @@
 #include <d3dx12.h>
 #include "D3D_Util/D3DUtil.h"
 #include "D3D12Renderer.h"
+#include "BasicMeshObject.h"
 
 CD3D12Renderer::CD3D12Renderer()
 {
@@ -188,6 +189,53 @@ lb_return:
 	return bResult;
 }
 
+BOOL CD3D12Renderer::UpdateWindowSize(DWORD dwBackBufferWidth, DWORD dwBackBufferHeight)
+{
+	BOOL bResult = FALSE;
+
+	if (!(dwBackBufferWidth * dwBackBufferHeight)) return FALSE;
+
+	if (m_dwWidth == dwBackBufferWidth && m_dwHeight == dwBackBufferHeight) return FALSE;
+
+	DXGI_SWAP_CHAIN_DESC1 desc;
+	HRESULT hr = m_pSwapChain->GetDesc1(&desc);
+
+	if (FAILED(hr))
+		__debugbreak();
+
+	for (UINT n = 0; n < SWAP_CHAIN_FRAME_COUNT; ++n)
+	{
+		m_pRenderTargets[n]->Release();
+		m_pRenderTargets[n] = nullptr;
+	}
+
+	if (FAILED(m_pSwapChain->ResizeBuffers(SWAP_CHAIN_FRAME_COUNT, dwBackBufferWidth, dwBackBufferHeight, DXGI_FORMAT_R8G8B8A8_UNORM, m_dwSwapChainFlags)))
+		__debugbreak();
+
+	m_uiRenderTargetIndex = m_pSwapChain->GetCurrentBackBufferIndex();
+
+	// 프레임 리소스 생성
+	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_pRTVHeap->GetCPUDescriptorHandleForHeapStart());
+
+	// 매 프레임마다 RTV 생성
+	for (UINT n = 0; n < SWAP_CHAIN_FRAME_COUNT; ++n)
+	{
+		m_pSwapChain->GetBuffer(n, IID_PPV_ARGS(&m_pRenderTargets[n]));
+		m_pD3DDevice->CreateRenderTargetView(m_pRenderTargets[n], nullptr, rtvHandle);
+		rtvHandle.Offset(1, m_rtvDescriptorSize);
+	}
+	m_dwWidth = dwBackBufferWidth;
+	m_dwHeight = dwBackBufferHeight;
+	m_Viewport.Width = (float)m_dwWidth;
+	m_Viewport.Height = (float)m_dwHeight;
+	m_ScissorRect.left = 0;
+	m_ScissorRect.top = 0;
+	m_ScissorRect.right = m_dwWidth;
+	m_ScissorRect.bottom = m_dwHeight;
+
+	return TRUE;
+}
+
 void CD3D12Renderer::BeginRender()
 {
 	//
@@ -207,7 +255,17 @@ void CD3D12Renderer::BeginRender()
 	const float BackColor[] = { 0.2f, 0.2f, 0.2f, 1.0f };
 	m_pCommandList->ClearRenderTargetView(rtvHandle, BackColor, 0, nullptr);
 
+	m_pCommandList->RSSetViewports(1, &m_Viewport);
+	m_pCommandList->RSSetScissorRects(1, &m_ScissorRect);
+	m_pCommandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
 }
+
+void CD3D12Renderer::RenderMeshObject(void* pMeshObjHandle)
+{
+	CBasicMeshObject* pMeshObj = (CBasicMeshObject*)pMeshObjHandle;
+	pMeshObj->Draw(m_pCommandList);
+}
+
 void CD3D12Renderer::EndRender()
 {
 	//
@@ -226,8 +284,8 @@ void CD3D12Renderer::Present()
 	//
 	// Back Buffer 화면을 Primary Buffer로 전송
 	//
-	UINT m_SyncInterval = 1;	// VSync On
-	//UINT m_SyncInterval = 0;	// VSync Off
+	//UINT m_SyncInterval = 1;	// VSync On
+	UINT m_SyncInterval = 0;	// VSync Off
 
 	UINT uiSyncInterval = m_SyncInterval;
 	UINT uiPresentFlags = 0;
@@ -238,20 +296,35 @@ void CD3D12Renderer::Present()
 	}
 
 	HRESULT hr = m_pSwapChain->Present(uiSyncInterval, uiPresentFlags);
-
+	
 	if (DXGI_ERROR_DEVICE_REMOVED == hr)
 	{
 		__debugbreak();
 	}
 
 	// for next frame
-	m_uiRenderTargetIndex = m_pSwapChain->GetCurrentBackBufferIndex();
+    m_uiRenderTargetIndex = m_pSwapChain->GetCurrentBackBufferIndex();
 
 
 	Fence();
 
 	WaitForFenceValue();
 }
+
+void* CD3D12Renderer::CreateBasicMeshObject()
+{
+	CBasicMeshObject* pMeshObj = new CBasicMeshObject;
+	pMeshObj->Initialize(this);
+	pMeshObj->CreateMesh();
+	return pMeshObj;
+}
+
+void CD3D12Renderer::DeleteBasicMeshObject(void* pMeshObjHandle)
+{
+	CBasicMeshObject* pMeshObj = (CBasicMeshObject*)pMeshObjHandle;
+	delete pMeshObj;
+}
+
 UINT64 CD3D12Renderer::Fence()
 {
 	m_ui64FenceValue++;

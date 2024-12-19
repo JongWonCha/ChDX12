@@ -22,7 +22,14 @@ WCHAR szTitle[MAX_LOADSTRING];                  // 제목 표시줄 텍스트입
 WCHAR szWindowClass[MAX_LOADSTRING];            // 기본 창 클래스 이름입니다.
 
 CD3D12Renderer* g_pRenderer = nullptr;
+void* g_pMeshObj = nullptr;
+
+ULONGLONG g_PrvFrameCheckTick = 0;
+ULONGLONG g_PrvUpdateTick = 0;
+DWORD g_FrameCount = 0;
+
 void RunGame();
+void Update();
 
 // 이 코드 모듈에 포함된 함수의 선언을 전달합니다:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -59,6 +66,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     g_pRenderer = new CD3D12Renderer;
     g_pRenderer->Initialize(g_hMainWindow, TRUE, TRUE);
+    g_pMeshObj = g_pRenderer->CreateBasicMeshObject();
 
     while (true)
     {
@@ -77,6 +85,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             RunGame();
         }
     }
+    if (g_pMeshObj)
+    {
+        g_pRenderer->DeleteBasicMeshObject(g_pMeshObj);
+        g_pMeshObj = nullptr;
+    }
 
     if (g_pRenderer)
     {
@@ -91,18 +104,46 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 void RunGame()
 {
+    g_FrameCount++;
+
     // begin
+    ULONGLONG CurTick = GetTickCount64();
+
     g_pRenderer->BeginRender();
 
     // 게임 로직
+    if (CurTick - g_PrvUpdateTick > 16)
+    {
+        // 60 fps로 씬 업데이트
+        Update();
+        g_PrvUpdateTick = CurTick;
+    }
+
+    
 
     // 오브젝트 렌더링
-
+    g_pRenderer->RenderMeshObject(g_pMeshObj);
     // end
     g_pRenderer->EndRender();
 
     // present
     g_pRenderer->Present();
+
+    if (CurTick - g_PrvFrameCheckTick > 1000)
+    {
+        g_PrvFrameCheckTick = CurTick;
+
+        WCHAR wchTxt[64];
+        swprintf_s(wchTxt, L"FPS : %u", g_FrameCount);
+        SetWindowText(g_hMainWindow, wchTxt);
+
+        g_FrameCount = 0;
+    }
+}
+
+void Update()
+{
+
 }
 
 //

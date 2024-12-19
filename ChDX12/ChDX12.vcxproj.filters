@@ -23,6 +23,15 @@
     <Filter Include="Renderer\D3D12Renderer">
       <UniqueIdentifier>{ecb2c535-8792-400b-8b43-6af8c96a8d4f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Renderer\BasicMeshObject">
+      <UniqueIdentifier>{82595e56-5889-405c-9022-1940986ac68e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Renderer\Shader">
+      <UniqueIdentifier>{1aaa44b7-f5ba-470d-b490-7b516ece7f09}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="typedef">
+      <UniqueIdentifier>{659d3592-ee6b-4dc5-b52e-aa26f643261f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Resource.h">
@@ -39,6 +48,12 @@
     </ClInclude>
     <ClInclude Include="D3D_Util\D3DUtil.h">
       <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="BasicMeshObject.h">
+      <Filter>Renderer\BasicMeshObject</Filter>
+    </ClInclude>
+    <ClInclude Include="typedef.h">
+      <Filter>typedef</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -70,5 +85,13 @@
     <ClCompile Include="D3D_Util\D3DUtil.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="BasicMeshObject.cpp">
+      <Filter>Renderer\BasicMeshObject</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="Shaders\shaders.hlsl">
+      <Filter>Renderer\Shader</Filter>
+    </CustomBuild>
   </ItemGroup>
 </Project>
