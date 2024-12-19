@@ -149,6 +149,19 @@ lb_exit:
 		m_uiRenderTargetIndex = m_pSwapChain->GetCurrentBackBufferIndex();
 	}
 
+	m_Viewport.Width = (float)dwWndWidth;
+	m_Viewport.Height = (float)dwWndHeight;
+	m_Viewport.MinDepth = 0.0f;
+	m_Viewport.MaxDepth = 1.0f;
+
+	m_ScissorRect.left = 0;
+	m_ScissorRect.top = 0;
+	m_ScissorRect.right = dwWndWidth;
+	m_ScissorRect.bottom = dwWndHeight;
+
+	m_dwWidth = dwWndWidth;
+	m_dwHeight = dwWndHeight;
+
 
 	// Create frame resources.
 	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_pRTVHeap->GetCPUDescriptorHandleForHeapStart());
@@ -324,6 +337,7 @@ void CD3D12Renderer::DeleteBasicMeshObject(void* pMeshObjHandle)
 	CBasicMeshObject* pMeshObj = (CBasicMeshObject*)pMeshObjHandle;
 	delete pMeshObj;
 }
+
 
 UINT64 CD3D12Renderer::Fence()
 {
