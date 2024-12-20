@@ -32,6 +32,9 @@
     <Filter Include="typedef">
       <UniqueIdentifier>{659d3592-ee6b-4dc5-b52e-aa26f643261f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Renderer\ResourceManager">
+      <UniqueIdentifier>{6d2949ba-ad35-4a68-b84a-41f89b1832ff}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Resource.h">
@@ -54,6 +57,9 @@
     </ClInclude>
     <ClInclude Include="typedef.h">
       <Filter>typedef</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D12ResourceManager.h">
+      <Filter>Renderer\ResourceManager</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -87,6 +93,9 @@
     </ClCompile>
     <ClCompile Include="BasicMeshObject.cpp">
       <Filter>Renderer\BasicMeshObject</Filter>
+    </ClCompile>
+    <ClCompile Include="D3D12ResourceManager.cpp">
+      <Filter>Renderer\ResourceManager</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

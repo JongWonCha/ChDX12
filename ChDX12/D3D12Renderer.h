@@ -2,11 +2,14 @@
 
 const UINT SWAP_CHAIN_FRAME_COUNT = 2;
 
+class CD3D12ResourceManager;
+
 class CD3D12Renderer
 {
 	HWND	m_hWnd = nullptr;
 	ID3D12Device5* m_pD3DDevice = nullptr;
 	ID3D12CommandQueue* m_pCommandQueue = nullptr;
+	CD3D12ResourceManager* m_pResourceManager = nullptr;
 	ID3D12CommandAllocator* m_pCommandAllocator = nullptr;
 	ID3D12GraphicsCommandList* m_pCommandList = nullptr;
 	UINT64	m_ui64FenceValue = 0;
@@ -50,14 +53,13 @@ public:
 	void	Present();
 	BOOL	UpdateWindowSize(DWORD dwBackBufferWidth, DWORD dwBackBufferHeight);
 
-	void* CreateBasicMeshObject();
+	void*	CreateBasicMeshObject();
 	void	DeleteBasicMeshObject(void* pMeshObjHandle);
 	void	RenderMeshObject(void* pMeshObjHandle);
 
 	// for internal
 	ID3D12Device5* INL_GetD3DDevice() const { return m_pD3DDevice; }
-
+	CD3D12ResourceManager* INL_GetResourceManager() { return m_pResourceManager; }
 	CD3D12Renderer();
 	~CD3D12Renderer();
 };
-

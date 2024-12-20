@@ -5,6 +5,7 @@
 #include "D3D_Util/D3DUtil.h"
 #include "D3D12Renderer.h"
 #include "BasicMeshObject.h"
+#include "D3D12ResourceManager.h"
 
 ID3D12RootSignature* CBasicMeshObject::m_pRootSignature = nullptr;
 ID3D12PipelineState* CBasicMeshObject::m_pPipelineState = nullptr;
@@ -12,11 +13,6 @@ DWORD CBasicMeshObject::m_dwInitRefCount = 0;
 
 CBasicMeshObject::CBasicMeshObject()
 {
-}
-
-CBasicMeshObject::~CBasicMeshObject()
-{
-	Cleanup();
 }
 
 BOOL CBasicMeshObject::Initialize(CD3D12Renderer* pRenderer)
@@ -134,6 +130,7 @@ BOOL CBasicMeshObject::CreateMesh()
 
 	BOOL bResult = FALSE;
 	ID3D12Device5* pD3DDevice = m_pRenderer->INL_GetD3DDevice();
+	CD3D12ResourceManager* pResourceManager = m_pRenderer->INL_GetResourceManager();
 
 	// 버텍스 버퍼 생성
 	// 삼각형의 지오메트리 정의
@@ -146,35 +143,41 @@ BOOL CBasicMeshObject::CreateMesh()
 
 	const UINT VertexBufferSize = sizeof(Vertices);
 
-	// 버텍스 버퍼를 만드는 부분
-	// 이 샘플에서는 버텍스 데이터를 CPU 메모리에다가 만들고 그걸 써먹을 것.
-	// 시스템 메모리에 버텍스 버퍼를 VertexBufferSize만큼 잡는다.
-	if (FAILED(pD3DDevice->CreateCommittedResource(
-		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-		D3D12_HEAP_FLAG_NONE,
-		&CD3DX12_RESOURCE_DESC::Buffer(VertexBufferSize),
-		D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr,
-		IID_PPV_ARGS(&m_pVertexBuffer)
-	)))
+	if (FAILED(pResourceManager->CreateVertexBuffer(sizeof(BasicVertex), (DWORD)_countof(Vertices), &m_VertexBufferView, &m_pVertexBuffer, Vertices)))
 	{
 		__debugbreak();
+		goto lb_return;
 	}
 
-	//Vertice 데이터를 버텍스 버퍼에 카피한다.
-	UINT8* pVertexDataBegin = nullptr;
-	CD3DX12_RANGE readRange(0, 0);
+	//// 버텍스 버퍼를 만드는 부분
+	//// 이 샘플에서는 버텍스 데이터를 CPU 메모리에다가 만들고 그걸 써먹을 것.
+	//// 시스템 메모리에 버텍스 버퍼를 VertexBufferSize만큼 잡는다.
+	//if (FAILED(pD3DDevice->CreateCommittedResource(
+	//	&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+	//	D3D12_HEAP_FLAG_NONE,
+	//	&CD3DX12_RESOURCE_DESC::Buffer(VertexBufferSize),
+	//	D3D12_RESOURCE_STATE_GENERIC_READ,
+	//	nullptr,
+	//	IID_PPV_ARGS(&m_pVertexBuffer)
+	//)))
+	//{
+	//	__debugbreak();
+	//}
 
-	if (FAILED(m_pVertexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin))))
-		__debugbreak();
+	////Vertice 데이터를 버텍스 버퍼에 카피한다.
+	//UINT8* pVertexDataBegin = nullptr;
+	//CD3DX12_RANGE readRange(0, 0);
 
-	memcpy(pVertexDataBegin, Vertices, sizeof(Vertices));
-	m_pVertexBuffer->Unmap(0, nullptr);
+	//if (FAILED(m_pVertexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin))))
+	//	__debugbreak();
 
-	// 버텍스 버퍼 뷰 초기화
-	m_VertexBufferView.BufferLocation = m_pVertexBuffer->GetGPUVirtualAddress();
-	m_VertexBufferView.StrideInBytes = sizeof(BasicVertex);
-	m_VertexBufferView.SizeInBytes = VertexBufferSize;
+	//memcpy(pVertexDataBegin, Vertices, sizeof(Vertices));
+	//m_pVertexBuffer->Unmap(0, nullptr);
+
+	//// 버텍스 버퍼 뷰 초기화
+	//m_VertexBufferView.BufferLocation = m_pVertexBuffer->GetGPUVirtualAddress();
+	//m_VertexBufferView.StrideInBytes = sizeof(BasicVertex);
+	//m_VertexBufferView.SizeInBytes = VertexBufferSize;
 
 	bResult = TRUE;
 
@@ -222,4 +225,9 @@ void CBasicMeshObject::CleanupSharedResources()
 			m_pPipelineState = nullptr;
 		}
 	}
+}
+
+CBasicMeshObject::~CBasicMeshObject()
+{
+	Cleanup();
 }

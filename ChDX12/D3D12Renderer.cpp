@@ -7,6 +7,7 @@
 #include "D3D_Util/D3DUtil.h"
 #include "D3D12Renderer.h"
 #include "BasicMeshObject.h"
+#include "D3D12ResourceManager.h"
 
 CD3D12Renderer::CD3D12Renderer()
 {
@@ -181,6 +182,9 @@ lb_exit:
 
 	// Create synchronization objects.
 	CreateFence();
+
+	m_pResourceManager = new CD3D12ResourceManager;
+	m_pResourceManager->Initialize(m_pD3DDevice);
 
 	bResult = TRUE;
 lb_return:
@@ -441,6 +445,12 @@ void CD3D12Renderer::CleanupDescriptorHeap()
 void CD3D12Renderer::Cleanup()
 {
 	WaitForFenceValue();
+
+	if (m_pResourceManager)
+	{
+		delete m_pResourceManager;
+		m_pResourceManager = nullptr;
+	}
 
 	CleanupDescriptorHeap();
 
