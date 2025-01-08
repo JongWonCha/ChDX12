@@ -39,13 +39,32 @@ lb_true:
 BOOL CBasicMeshObject::InitRootSignature()
 {
 	ID3D12Device5* pD3DDevice = m_pRenderer->INL_GetD3DDevice();
+	ID3DBlob* pSignature = nullptr;
+	ID3DBlob* pError = nullptr;
+
+	CD3DX12_DESCRIPTOR_RANGE ranges[1] = {};
+	ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0); // t0 : 텍스처
+
+	CD3DX12_ROOT_PARAMETER rootParameters[1] = {};
+	rootParameters[0].InitAsDescriptorTable(_countof(ranges), ranges, D3D12_SHADER_VISIBILITY_ALL);
+
+	// default sampler
+	D3D12_STATIC_SAMPLER_DESC sampler = {};
+	SetDefaultSamplerDesc(&sampler, 0);
+	sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
+
+	// 인풋 레이아웃 허가, 특정 파이프라인 스테이지에 대한 불필요한 접근 거부
+	D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
+		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT |
+		D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS |
+		D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
+		D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS |
+		D3D12_ROOT_SIGNATURE_FLAG_DENY_PIXEL_SHADER_ROOT_ACCESS;
 
 	// 속이 비어있는 루트 시그니처를 만든다. 안쓸거기 때문에 비어있는 것으로.
 	CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
-	rootSignatureDesc.Init(0, nullptr, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
-
-	ID3DBlob* pSignature = nullptr;
-	ID3DBlob* pError = nullptr;
+	//rootSignatureDesc.Init(0, nullptr, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+	rootSignatureDesc.Init(_countof(rootParameters), rootParameters, 1, &sampler, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
 	if (FAILED(D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &pSignature, &pError)))
 		__debugbreak();
@@ -68,26 +87,32 @@ BOOL CBasicMeshObject::InitRootSignature()
 
 BOOL CBasicMeshObject::InitPipelineState()
 {
-	ID3D12Device5* pD3DDevice = m_pRenderer->INL_GetD3DDevice();
+	ID3D12Device5* pD3DDeivce = m_pRenderer->INL_GetD3DDevice();
 
 	ID3DBlob* pVertexShader = nullptr;
 	ID3DBlob* pPixelShader = nullptr;
+
 #if defined(_DEBUG)
+	// Enable better shader debugging with the graphics debugging tools.
 	UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
 #else
 	UINT compileFlags = 0;
 #endif
-	if (FAILED(D3DCompileFromFile(L"Shaders\\shaders.hlsl", nullptr, nullptr, "VSMain", "vs_5_0", compileFlags, 0, &pVertexShader, nullptr)))
+	if (FAILED(D3DCompileFromFile(L"./Shaders/shaders.hlsl", nullptr, nullptr, "VSMain", "vs_5_0", compileFlags, 0, &pVertexShader, nullptr)))
+	{
 		__debugbreak();
-
-	if (FAILED(D3DCompileFromFile(L"Shaders\\shaders.hlsl", nullptr, nullptr, "PSMain", "ps_5_0", compileFlags, 0, &pPixelShader, nullptr)))
+	}
+	if (FAILED(D3DCompileFromFile(L"./Shaders/shaders.hlsl", nullptr, nullptr, "PSMain", "ps_5_0", compileFlags, 0, &pPixelShader, nullptr)))
+	{
 		__debugbreak();
+	}
 
 	// 버텍스 인풋 레이아웃 정의
 	D3D12_INPUT_ELEMENT_DESC inputElementDescs[] =
 	{
-		{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-		{"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,	0, 28,	D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
 	};
 
 	// 이 과정에서 루트 시그니처가 필요하기 때문에 빈것이라도 루트 시그니처를 만든 것이다.
@@ -105,9 +130,10 @@ BOOL CBasicMeshObject::InitPipelineState()
 	psoDesc.NumRenderTargets = 1;
 	psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 	psoDesc.SampleDesc.Count = 1;
-
-	if (FAILED(pD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_pPipelineState))))
+	if (FAILED(pD3DDeivce->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_pPipelineState))))
+	{
 		__debugbreak();
+	}
 
 	if (pVertexShader)
 	{
@@ -119,8 +145,32 @@ BOOL CBasicMeshObject::InitPipelineState()
 		pPixelShader->Release();
 		pPixelShader = nullptr;
 	}
-
 	return TRUE;
+}
+
+BOOL CBasicMeshObject::CreateDescriptorTable()
+{
+	BOOL bResult = FALSE;
+	ID3D12Device5* pD3DDeivce = m_pRenderer->INL_GetD3DDevice();
+
+	// 렌더링시 Descriptor Table로 사용할 Descriptor Heap - 
+	// Descriptor Table
+	// | TEX
+	m_srvDescriptorSize = pD3DDeivce->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV); // 32 바이트
+
+	// Descriptor Heap 생성
+	D3D12_DESCRIPTOR_HEAP_DESC commonHeapDesc = {};
+	commonHeapDesc.NumDescriptors = DESCRIPTOR_COUNT_FOR_DRAW;
+	commonHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	commonHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	if (FAILED(pD3DDeivce->CreateDescriptorHeap(&commonHeapDesc, IID_PPV_ARGS(&m_pDescriptorHeap))))
+	{
+		__debugbreak();
+		goto lb_return;
+	}
+	bResult = TRUE;
+lb_return:
+	return bResult;
 }
 
 BOOL CBasicMeshObject::CreateMesh()
@@ -136,9 +186,9 @@ BOOL CBasicMeshObject::CreateMesh()
 	// 삼각형의 지오메트리 정의
 	BasicVertex Vertices[] =
 	{
-		{ { 0.0f, 0.25f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
-		{ { 0.25f, -0.25f, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
-		{ { -0.25f, -0.25f, 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f } }
+		{ { 0.0f, 0.25f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f }, { 0.5f, 0.0f } },
+		{ { 0.25f, -0.25f, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
+		{ { -0.25f, -0.25f, 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f }, { 0.0f, 1.0f } }
 	};
 
 	const UINT VertexBufferSize = sizeof(Vertices);
@@ -149,35 +199,62 @@ BOOL CBasicMeshObject::CreateMesh()
 		goto lb_return;
 	}
 
-	//// 버텍스 버퍼를 만드는 부분
-	//// 이 샘플에서는 버텍스 데이터를 CPU 메모리에다가 만들고 그걸 써먹을 것.
-	//// 시스템 메모리에 버텍스 버퍼를 VertexBufferSize만큼 잡는다.
-	//if (FAILED(pD3DDevice->CreateCommittedResource(
-	//	&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-	//	D3D12_HEAP_FLAG_NONE,
-	//	&CD3DX12_RESOURCE_DESC::Buffer(VertexBufferSize),
-	//	D3D12_RESOURCE_STATE_GENERIC_READ,
-	//	nullptr,
-	//	IID_PPV_ARGS(&m_pVertexBuffer)
-	//)))
-	//{
-	//	__debugbreak();
-	//}
+	// 텍스처 생성
+	const UINT TexWidth = 16;
+	const UINT TexHeight = 16;
+	DXGI_FORMAT TexFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 
-	////Vertice 데이터를 버텍스 버퍼에 카피한다.
-	//UINT8* pVertexDataBegin = nullptr;
-	//CD3DX12_RANGE readRange(0, 0);
+	BYTE* pImage = (BYTE*)malloc(TexWidth * TexHeight * 4);
+	memset(pImage, 0, TexWidth * TexHeight * 4);
 
-	//if (FAILED(m_pVertexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin))))
-	//	__debugbreak();
+	BOOL bFirstColorIsWhite = TRUE;
 
-	//memcpy(pVertexDataBegin, Vertices, sizeof(Vertices));
-	//m_pVertexBuffer->Unmap(0, nullptr);
+	for (UINT y = 0; y < TexHeight; y++)
+	{
+		for (UINT x = 0; x < TexWidth; x++)
+		{
 
-	//// 버텍스 버퍼 뷰 초기화
-	//m_VertexBufferView.BufferLocation = m_pVertexBuffer->GetGPUVirtualAddress();
-	//m_VertexBufferView.StrideInBytes = sizeof(BasicVertex);
-	//m_VertexBufferView.SizeInBytes = VertexBufferSize;
+			RGBA* pDest = (RGBA*)(pImage + (x + y * TexWidth) * 4);
+
+			pDest->r = rand() % 255;
+			pDest->g = rand() % 255;
+			pDest->b = rand() % 255;
+
+			if ((bFirstColorIsWhite + x) % 2)
+			{
+				pDest->r = 255;
+				pDest->g = 255;
+				pDest->b = 255;
+			}
+			else
+			{
+				pDest->r = 0;
+				pDest->g = 0;
+				pDest->b = 0;
+			}
+			pDest->a = 255;
+		}
+		bFirstColorIsWhite++;
+		bFirstColorIsWhite %= 2;
+	}
+	pResourceManager->CreateTexture(&m_pTexResource, TexWidth, TexHeight, TexFormat, pImage);
+
+	free(pImage);
+
+	CreateDescriptorTable();
+
+	// 텍스처 리소스로부터 셰이더 리소스 뷰 생성
+	{
+		D3D12_SHADER_RESOURCE_VIEW_DESC SRVDesc = {};
+		SRVDesc.Format = TexFormat;
+		SRVDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING; // rgba중 어느 것을 쓸 것인가?(현재는 컴포넌트 4개 사용)
+		SRVDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		SRVDesc.Texture2D.MipLevels = 1;
+
+		CD3DX12_CPU_DESCRIPTOR_HANDLE srv(m_pDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), BASIC_MESH_DESCRIPTOR_INDEX_TEX, m_srvDescriptorSize);
+		pD3DDevice->CreateShaderResourceView(m_pTexResource, &SRVDesc, srv); // CPU 측 디스크립터를 만들어 준다.
+	}
+
 
 	bResult = TRUE;
 
@@ -189,6 +266,11 @@ void CBasicMeshObject::Draw(ID3D12GraphicsCommandList* pCommandList)
 {
 	// 루트 시그니처 세팅
 	pCommandList->SetGraphicsRootSignature(m_pRootSignature);
+
+	pCommandList->SetDescriptorHeaps(1, &m_pDescriptorHeap);// 테이블을 전달할 것임. 이 테이블이 어느 물리 메모리에 올라가 있는지 알려줘야 함.
+
+	CD3DX12_GPU_DESCRIPTOR_HANDLE gpuDescriptorTable(m_pDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+	pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable);
 
 	pCommandList->SetPipelineState(m_pPipelineState);
 	pCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -202,6 +284,18 @@ void CBasicMeshObject::Cleanup()
 	{
 		m_pVertexBuffer->Release();
 		m_pVertexBuffer = nullptr;
+	}
+
+	if (m_pDescriptorHeap)
+	{
+		m_pDescriptorHeap->Release();
+		m_pDescriptorHeap = nullptr;
+	}
+
+	if (m_pTexResource)
+	{
+		m_pTexResource->Release();
+		m_pTexResource = nullptr;
 	}
 	CleanupSharedResources();
 }

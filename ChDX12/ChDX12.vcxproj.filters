@@ -35,6 +35,12 @@
     <Filter Include="Renderer\ResourceManager">
       <UniqueIdentifier>{6d2949ba-ad35-4a68-b84a-41f89b1832ff}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Renderer\DescriptorPool">
+      <UniqueIdentifier>{b3dd8ae0-6687-4363-bbd0-9f8d2c669356}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Renderer\SingleDescriptorAllocator">
+      <UniqueIdentifier>{44af3117-b8e4-4259-82fa-4d456458b952}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Resource.h">

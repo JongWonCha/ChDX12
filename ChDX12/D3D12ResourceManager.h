@@ -25,6 +25,8 @@ class CD3D12ResourceManager
 public:
 	BOOL	Initialize(ID3D12Device5* pD3DDevice);
 	HRESULT	CreateVertexBuffer(UINT SizePerVertex, DWORD dwVertexNum, D3D12_VERTEX_BUFFER_VIEW* pOutVertexBufferView, ID3D12Resource** ppOutBuffer, void* pInitData);
+	void	UpdateTextureForWrite(ID3D12Resource* pDestTexResource, ID3D12Resource* pSrcTexResource);
+	BOOL	CreateTexture(ID3D12Resource** ppOutResource, UINT Width, UINT Height, DXGI_FORMAT format, const BYTE* pInitImage);
 
 	CD3D12ResourceManager();
 	~CD3D12ResourceManager();
