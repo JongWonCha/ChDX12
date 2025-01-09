@@ -55,7 +55,7 @@ public:
 
 	void*	CreateBasicMeshObject();
 	void	DeleteBasicMeshObject(void* pMeshObjHandle);
-	void	RenderMeshObject(void* pMeshObjHandle);
+	void	RenderMeshObject(void* pMeshObjHandle, float x_offset, float y_offset);
 
 	// for internal
 	ID3D12Device5* INL_GetD3DDevice() const { return m_pD3DDevice; }

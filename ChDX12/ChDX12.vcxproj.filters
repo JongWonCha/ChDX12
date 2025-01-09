@@ -67,6 +67,9 @@
     <ClInclude Include="D3D12ResourceManager.h">
       <Filter>Renderer\ResourceManager</Filter>
     </ClInclude>
+    <ClInclude Include="Util\LinkedList.h">
+      <Filter>Util</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ChDX12.rc">
@@ -102,6 +105,9 @@
     </ClCompile>
     <ClCompile Include="D3D12ResourceManager.cpp">
       <Filter>Renderer\ResourceManager</Filter>
+    </ClCompile>
+    <ClCompile Include="Util\LinkedList.cpp">
+      <Filter>Util</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

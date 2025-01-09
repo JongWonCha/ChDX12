@@ -277,10 +277,11 @@ void CD3D12Renderer::BeginRender()
 	m_pCommandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
 }
 
-void CD3D12Renderer::RenderMeshObject(void* pMeshObjHandle)
+void CD3D12Renderer::RenderMeshObject(void* pMeshObjHandle, float x_offset, float y_offset)
 {
 	CBasicMeshObject* pMeshObj = (CBasicMeshObject*)pMeshObjHandle;
-	pMeshObj->Draw(m_pCommandList);
+	XMFLOAT2	Pos = { x_offset, y_offset };
+	pMeshObj->Draw(m_pCommandList, &Pos);
 }
 
 void CD3D12Renderer::EndRender()

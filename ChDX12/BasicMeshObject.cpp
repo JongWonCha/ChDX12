@@ -42,8 +42,10 @@ BOOL CBasicMeshObject::InitRootSignature()
 	ID3DBlob* pSignature = nullptr;
 	ID3DBlob* pError = nullptr;
 
-	CD3DX12_DESCRIPTOR_RANGE ranges[1] = {};
-	ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0); // t0 : 텍스처
+	CD3DX12_DESCRIPTOR_RANGE ranges[2] = {};
+	ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0); // b0 : 상수 버퍼
+	ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0); // t0 : 텍스처
+	
 
 	CD3DX12_ROOT_PARAMETER rootParameters[1] = {};
 	rootParameters[0].InitAsDescriptorTable(_countof(ranges), ranges, D3D12_SHADER_VISIBILITY_ALL);
@@ -155,7 +157,7 @@ BOOL CBasicMeshObject::CreateDescriptorTable()
 
 	// 렌더링시 Descriptor Table로 사용할 Descriptor Heap - 
 	// Descriptor Table
-	// | TEX
+	// | CBV | TEX
 	m_srvDescriptorSize = pD3DDeivce->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV); // 32 바이트
 
 	// Descriptor Heap 생성
@@ -255,6 +257,40 @@ BOOL CBasicMeshObject::CreateMesh()
 		pD3DDevice->CreateShaderResourceView(m_pTexResource, &SRVDesc, srv); // CPU 측 디스크립터를 만들어 준다.
 	}
 
+	// 상수 버퍼 생성
+	{
+		// 상수 버퍼 사이즈는 256바이트에 정렬되어야 한다.(시작 위치가 256 배수)
+		const UINT constantBufferSize = (UINT)AlignConstantBufferSize(sizeof(CONSTANT_BUFFER_DEFAULT));
+
+		if (FAILED(pD3DDevice->CreateCommittedResource(
+			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+			D3D12_HEAP_FLAG_NONE,
+			&CD3DX12_RESOURCE_DESC::Buffer(constantBufferSize),
+			D3D12_RESOURCE_STATE_COMMON,
+			nullptr,
+			IID_PPV_ARGS(&m_pConstantBuffer)
+		)))
+		{
+			__debugbreak();
+		}
+
+		D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
+		cbvDesc.BufferLocation = m_pConstantBuffer->GetGPUVirtualAddress();
+		cbvDesc.SizeInBytes = constantBufferSize;
+		CD3DX12_CPU_DESCRIPTOR_HANDLE cbv(m_pDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), BASIC_MESH_DESCRIPTOR_INDEX_CBV, m_srvDescriptorSize);
+		pD3DDevice->CreateConstantBufferView(&cbvDesc, cbv);
+
+		// 상수 버퍼 초기화 및 Map. 
+		// 프로그램이 끝날 떄 까지 Unmap을 하지 않을 것이다. 
+		CD3DX12_RANGE writeRange(0, 0);
+		if (FAILED(m_pConstantBuffer->Map(0, &writeRange, reinterpret_cast<void**>(&m_pSysConstBufferDefault))))
+		{
+			__debugbreak();
+		}
+		m_pSysConstBufferDefault->offset.x = 0.0f;
+		m_pSysConstBufferDefault->offset.y = 0.0f;
+	}
+
 
 	bResult = TRUE;
 
@@ -262,8 +298,11 @@ lb_return:
 	return bResult;
 }
 
-void CBasicMeshObject::Draw(ID3D12GraphicsCommandList* pCommandList)
+void CBasicMeshObject::Draw(ID3D12GraphicsCommandList* pCommandList, const XMFLOAT2* pPos)
 {
+	m_pSysConstBufferDefault->offset.x = pPos->x;
+	m_pSysConstBufferDefault->offset.y = pPos->y;
+
 	// 루트 시그니처 세팅
 	pCommandList->SetGraphicsRootSignature(m_pRootSignature);
 
@@ -296,6 +335,12 @@ void CBasicMeshObject::Cleanup()
 	{
 		m_pTexResource->Release();
 		m_pTexResource = nullptr;
+	}
+
+	if (m_pConstantBuffer)
+	{
+		m_pConstantBuffer->Release();
+		m_pConstantBuffer = nullptr;
 	}
 	CleanupSharedResources();
 }

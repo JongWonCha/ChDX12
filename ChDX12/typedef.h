@@ -22,3 +22,8 @@ union RGBA
 	};
 	BYTE	bColorFactor[4];
 };
+
+struct CONSTANT_BUFFER_DEFAULT
+{
+	XMFLOAT4 offset;
+};

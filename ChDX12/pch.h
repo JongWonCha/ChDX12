@@ -10,9 +10,9 @@
 // add headers that you want to pre-compile here
 
 #ifdef _DEBUG
-#define _CRTDBG_MAP_ALLOC
-#include <crtdbg.h>
-#define new new(_NORMAL_BLOCK, __FILE__, __LINE__)
+	#define _CRTDBG_MAP_ALLOC
+	#include <crtdbg.h>
+	#define new new(_NORMAL_BLOCK, __FILE__, __LINE__)
 #endif
 #include "targetver.h"
 
@@ -35,5 +35,9 @@
 #include <malloc.h>
 #include <memory.h>
 #include <tchar.h>
+
+#include "typedef.h"
+#include "Util/LinkedList.h"
+#include "D3D_Util/D3DUtil.h"
 
 #endif //PCH_H
