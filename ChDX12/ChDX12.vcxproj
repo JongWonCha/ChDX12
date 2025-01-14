@@ -144,8 +144,10 @@
     <ClInclude Include="D3D12Renderer.h" />
     <ClInclude Include="D3D12ResourceManager.h" />
     <ClInclude Include="D3D_Util\D3DUtil.h" />
+    <ClInclude Include="DescriptorPool.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Resource.h" />
+    <ClInclude Include="SimpleConstantBufferPool.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="typedef.h" />
     <ClInclude Include="Util\LinkedList.h" />
@@ -155,6 +157,7 @@
     <ClCompile Include="D3D12Renderer.cpp" />
     <ClCompile Include="D3D12ResourceManager.cpp" />
     <ClCompile Include="D3D_Util\D3DUtil.cpp" />
+    <ClCompile Include="DescriptorPool.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
@@ -162,6 +165,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="SimpleConstantBufferPool.cpp" />
     <ClCompile Include="Util\LinkedList.cpp" />
   </ItemGroup>
   <ItemGroup>

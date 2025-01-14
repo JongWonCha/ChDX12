@@ -25,7 +25,8 @@ CD3D12Renderer* g_pRenderer = nullptr;
 void* g_pMeshObj = nullptr;
 float g_fOffsetX = 0.0f;
 float g_fOffsetY = 0.0f;
-float g_fSpeed = 0.01f;
+float g_fSpeedX = 0.01f;
+float g_fSpeedY = 0.01f;
 
 ULONGLONG g_PrvFrameCheckTick = 0;
 ULONGLONG g_PrvUpdateTick = 0;
@@ -128,7 +129,9 @@ void RunGame()
     
 
     // 오브젝트 렌더링
-    g_pRenderer->RenderMeshObject(g_pMeshObj, g_fOffsetX, g_fOffsetY);
+    g_pRenderer->RenderMeshObject(g_pMeshObj, g_fOffsetX, 0.0f);
+
+    g_pRenderer->RenderMeshObject(g_pMeshObj, 0.0f, g_fOffsetY);
     // end
     g_pRenderer->EndRender();
 
@@ -149,14 +152,26 @@ void RunGame()
 
 void Update()
 {
-    g_fOffsetX += g_fSpeed;
+    BOOL bDirChanged = FALSE;
+    g_fOffsetX += g_fSpeedX;
     if (g_fOffsetX > 0.75f)
     {
-        g_fSpeed *= -1.0f;
+        g_fSpeedX *= -1.0f;
     }
     if (g_fOffsetX < -0.75f)
     {
-        g_fSpeed *= -1.0f;
+        g_fSpeedX *= -1.0f;
+    }
+    g_fOffsetY += g_fSpeedY;
+    if (g_fOffsetY > 0.75f)
+    {
+        g_fSpeedY *= -1.0f;
+        bDirChanged = TRUE;
+    }
+    if (g_fOffsetY < -0.75f)
+    {
+        g_fSpeedY *= -1.0f;
+        bDirChanged = TRUE;
     }
 }
 

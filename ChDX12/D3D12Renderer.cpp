@@ -5,9 +5,11 @@
 #include <dxgidebug.h>
 #include <d3dx12.h>
 #include "D3D_Util/D3DUtil.h"
-#include "D3D12Renderer.h"
 #include "BasicMeshObject.h"
 #include "D3D12ResourceManager.h"
+#include "DescriptorPool.h"
+#include "SimpleConstantBufferPool.h"
+#include "D3D12Renderer.h"
 
 CD3D12Renderer::CD3D12Renderer()
 {
@@ -108,7 +110,7 @@ lb_exit:
 		}
 	}
 
-	CreateDescriptorHeap();
+	CreateDescriptorHeapForRTV();
 
 	RECT	rect;
 	::GetClientRect(hWnd, &rect);
@@ -185,6 +187,12 @@ lb_exit:
 
 	m_pResourceManager = new CD3D12ResourceManager;
 	m_pResourceManager->Initialize(m_pD3DDevice);
+
+	m_pDescriptorPool = new CDescriptorPool;
+	m_pDescriptorPool->Initialize(m_pD3DDevice, MAX_DRAW_COUNT_PER_FRAME * CBasicMeshObject::DESCRIPTOR_COUNT_FOR_DRAW);
+
+	m_pConstantBufferPool = new CSimpleConstantBufferPool;
+	m_pConstantBufferPool->Initialize(m_pD3DDevice, AlignConstantBufferSize(sizeof(CONSTANT_BUFFER_DEFAULT)), MAX_DRAW_COUNT_PER_FRAME);
 
 	bResult = TRUE;
 lb_return:
@@ -327,6 +335,10 @@ void CD3D12Renderer::Present()
 	Fence();
 
 	WaitForFenceValue();
+
+	m_pConstantBufferPool->Reset();
+
+	m_pDescriptorPool->Reset();
 }
 
 void* CD3D12Renderer::CreateBasicMeshObject()
@@ -417,7 +429,7 @@ void CD3D12Renderer::CleanupFence()
 		m_pFence = nullptr;
 	}
 }
-BOOL CD3D12Renderer::CreateDescriptorHeap()
+BOOL CD3D12Renderer::CreateDescriptorHeapForRTV()
 {
 	HRESULT hr = S_OK;
 
@@ -435,7 +447,7 @@ BOOL CD3D12Renderer::CreateDescriptorHeap()
 
 	return TRUE;
 }
-void CD3D12Renderer::CleanupDescriptorHeap()
+void CD3D12Renderer::CleanupDescriptorHeapForRTV()
 {
 	if (m_pRTVHeap)
 	{
@@ -453,7 +465,19 @@ void CD3D12Renderer::Cleanup()
 		m_pResourceManager = nullptr;
 	}
 
-	CleanupDescriptorHeap();
+	if (m_pConstantBufferPool)
+	{
+		delete m_pConstantBufferPool;
+		m_pConstantBufferPool = nullptr;
+	}
+
+	if (m_pDescriptorPool)
+	{
+		delete m_pDescriptorPool;
+		m_pDescriptorPool = nullptr;
+	}
+
+	CleanupDescriptorHeapForRTV();
 
 	for (DWORD i = 0; i < SWAP_CHAIN_FRAME_COUNT; i++)
 	{
