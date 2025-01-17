@@ -5,15 +5,19 @@ const UINT SWAP_CHAIN_FRAME_COUNT = 2;
 class CD3D12ResourceManager;
 class CDescriptorPool;
 class CSimpleConstantBufferPool;
+class CSingleDescriptorAllocator;
 
 class CD3D12Renderer
 {
 	static const UINT MAX_DRAW_COUNT_PER_FRAME = 256;
+	static const UINT MAX_DESCRIPTOR_COUNT = 4096;
 
 	HWND	m_hWnd = nullptr;
 	ID3D12Device5* m_pD3DDevice = nullptr;
 	ID3D12CommandQueue* m_pCommandQueue = nullptr;
 	CD3D12ResourceManager* m_pResourceManager = nullptr;
+	CSingleDescriptorAllocator* m_pSingleDescriptorAllocator = nullptr;
+
 	ID3D12CommandAllocator* m_pCommandAllocator = nullptr;
 	ID3D12GraphicsCommandList* m_pCommandList = nullptr;
 	CDescriptorPool* m_pDescriptorPool = nullptr;
@@ -63,7 +67,11 @@ public:
 
 	void*	CreateBasicMeshObject();
 	void	DeleteBasicMeshObject(void* pMeshObjHandle);
-	void	RenderMeshObject(void* pMeshObjHandle, float x_offset, float y_offset);
+
+	void*	CreateTiledTexture(UINT TexWidth, UINT TexHeight, DWORD r, DWORD g, DWORD b);
+	void DeleteTexture(void * pHandle);
+
+	void	RenderMeshObject(void* pMeshObjHandle, float x_offset, float y_offset, void* pTexHandle);
 
 	// for internal
 	ID3D12Device5* INL_GetD3DDevice() const { return m_pD3DDevice; }
@@ -71,6 +79,7 @@ public:
 	CDescriptorPool* INL_GetDescriptorPool() { return m_pDescriptorPool; }
 	CSimpleConstantBufferPool* INL_GetConstantBufferPool() { return m_pConstantBufferPool; }
 	UINT INL_GetSrvDescriptorSize() { return m_srvDescriptorSize; }
+	CSingleDescriptorAllocator* INL_GetSingleDescriptorAllocator() { return m_pSingleDescriptorAllocator; }
 	CD3D12Renderer();
 	~CD3D12Renderer();
 };

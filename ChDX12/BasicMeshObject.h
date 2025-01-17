@@ -11,7 +11,7 @@ class CD3D12Renderer;
 class CBasicMeshObject
 {
 public:
-	static const UINT DESCRIPTOR_COUNT_FOR_DRAW = 1;	// | Constant Buffer (전의 강의와 비교하여 텍스처는 사용하지 않음.)
+	static const UINT DESCRIPTOR_COUNT_FOR_DRAW = 2;	// | Constant Buffer | Tex
 
 private:
 	// 모든 CBasicMeshObject 인스턴스들이 공유함.
@@ -35,7 +35,7 @@ private:
 
 public:
 	BOOL Initialize(CD3D12Renderer* pRenderer);
-	void Draw(ID3D12GraphicsCommandList* pCommandList, const XMFLOAT2* pPos);
+	void Draw(ID3D12GraphicsCommandList* pCommandList, const XMFLOAT2* pPos, D3D12_CPU_DESCRIPTOR_HANDLE srv);
 	BOOL CreateMesh();
 
 	CBasicMeshObject();

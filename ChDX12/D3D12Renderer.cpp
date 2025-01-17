@@ -9,6 +9,7 @@
 #include "D3D12ResourceManager.h"
 #include "DescriptorPool.h"
 #include "SimpleConstantBufferPool.h"
+#include "SingleDescriptorAllocator.h"
 #include "D3D12Renderer.h"
 
 CD3D12Renderer::CD3D12Renderer()
@@ -180,6 +181,8 @@ lb_exit:
 		rtvHandle.Offset(1, m_rtvDescriptorSize);
 	}
 
+	m_srvDescriptorSize = m_pD3DDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
 	CreateCommandList();
 
 	// Create synchronization objects.
@@ -193,6 +196,9 @@ lb_exit:
 
 	m_pConstantBufferPool = new CSimpleConstantBufferPool;
 	m_pConstantBufferPool->Initialize(m_pD3DDevice, AlignConstantBufferSize(sizeof(CONSTANT_BUFFER_DEFAULT)), MAX_DRAW_COUNT_PER_FRAME);
+
+	m_pSingleDescriptorAllocator = new CSingleDescriptorAllocator;
+	m_pSingleDescriptorAllocator->Initialize(m_pD3DDevice, MAX_DESCRIPTOR_COUNT, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
 
 	bResult = TRUE;
 lb_return:
@@ -285,11 +291,16 @@ void CD3D12Renderer::BeginRender()
 	m_pCommandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
 }
 
-void CD3D12Renderer::RenderMeshObject(void* pMeshObjHandle, float x_offset, float y_offset)
+void CD3D12Renderer::RenderMeshObject(void* pMeshObjHandle, float x_offset, float y_offset, void* pTexHandle)
 {
+	D3D12_CPU_DESCRIPTOR_HANDLE srv = {};
 	CBasicMeshObject* pMeshObj = (CBasicMeshObject*)pMeshObjHandle;
+	if (pTexHandle)
+	{
+		srv = ((TEXTURE_HANDLE*)pTexHandle)->srv;
+	}
 	XMFLOAT2	Pos = { x_offset, y_offset };
-	pMeshObj->Draw(m_pCommandList, &Pos);
+	pMeshObj->Draw(m_pCommandList, &Pos, srv);
 }
 
 void CD3D12Renderer::EndRender()
@@ -355,7 +366,6 @@ void CD3D12Renderer::DeleteBasicMeshObject(void* pMeshObjHandle)
 	delete pMeshObj;
 }
 
-
 UINT64 CD3D12Renderer::Fence()
 {
 	m_ui64FenceValue++;
@@ -373,6 +383,88 @@ void CD3D12Renderer::WaitForFenceValue()
 		WaitForSingleObject(m_hFenceEvent, INFINITE);
 	}
 }
+
+void* CD3D12Renderer::CreateTiledTexture(UINT TexWidth, UINT TexHeight, DWORD r, DWORD g, DWORD b)
+{
+	TEXTURE_HANDLE* pTexHandle = nullptr;
+
+	BOOL bResult = FALSE;
+	ID3D12Resource* pTexResource = nullptr;
+	D3D12_CPU_DESCRIPTOR_HANDLE srv = {};
+
+
+	DXGI_FORMAT TexFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+
+	BYTE* pImage = (BYTE*)malloc(TexWidth * TexHeight * 4);
+	memset(pImage, 0, TexWidth * TexHeight * 4);
+
+	BOOL bFirstColorIsWhite = TRUE;
+
+	for (UINT y = 0; y < TexHeight; y++)
+	{
+		for (UINT x = 0; x < TexWidth; x++)
+		{
+
+			RGBA* pDest = (RGBA*)(pImage + (x + y * TexWidth) * 4);
+
+			if ((bFirstColorIsWhite + x) % 2)
+			{
+				pDest->r = r;
+				pDest->g = g;
+				pDest->b = b;
+			}
+			else
+			{
+				pDest->r = 0;
+				pDest->g = 0;
+				pDest->b = 0;
+			}
+			pDest->a = 255;
+		}
+		bFirstColorIsWhite++;
+		bFirstColorIsWhite %= 2;
+	}
+	if (m_pResourceManager->CreateTexture(&pTexResource, TexWidth, TexHeight, TexFormat, pImage))
+	{
+		D3D12_SHADER_RESOURCE_VIEW_DESC SRVDesc = {};
+		SRVDesc.Format = TexFormat;
+		SRVDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		SRVDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		SRVDesc.Texture2D.MipLevels = 1;
+
+		if (m_pSingleDescriptorAllocator->AllocDescriptorHandle(&srv))
+		{
+			m_pD3DDevice->CreateShaderResourceView(pTexResource, &SRVDesc, srv);
+
+			pTexHandle = new TEXTURE_HANDLE;
+			pTexHandle->pTexResource = pTexResource;
+			pTexHandle->srv = srv;
+			bResult = TRUE;
+		}
+		else
+		{
+			pTexResource->Release();
+			pTexResource = nullptr;
+		}
+	}
+	free(pImage);
+	pImage = nullptr;
+
+	return pTexHandle;
+}
+
+void CD3D12Renderer::DeleteTexture(void* pHandle)
+{
+	TEXTURE_HANDLE* pTexHandle = (TEXTURE_HANDLE*)pHandle;
+	ID3D12Resource* pTexResource = pTexHandle->pTexResource;
+	D3D12_CPU_DESCRIPTOR_HANDLE srv = pTexHandle->srv;
+
+	pTexResource->Release();
+	m_pSingleDescriptorAllocator->FreeDescriptorHandle(srv);
+
+	delete pHandle;
+}
+
 void CD3D12Renderer::CreateCommandList()
 {
 	if (FAILED(m_pD3DDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_pCommandAllocator))))
@@ -475,6 +567,12 @@ void CD3D12Renderer::Cleanup()
 	{
 		delete m_pDescriptorPool;
 		m_pDescriptorPool = nullptr;
+	}
+
+	if (m_pSingleDescriptorAllocator)
+	{
+		delete m_pSingleDescriptorAllocator;
+		m_pSingleDescriptorAllocator = nullptr;
 	}
 
 	CleanupDescriptorHeapForRTV();

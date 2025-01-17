@@ -44,8 +44,9 @@ BOOL CBasicMeshObject::InitRootSignature()
 	ID3DBlob* pSignature = nullptr;
 	ID3DBlob* pError = nullptr;
 
-	CD3DX12_DESCRIPTOR_RANGE ranges[1] = {};
-	ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0); // b0 : 상수 버퍼(텍스처 임시 삭제)
+	CD3DX12_DESCRIPTOR_RANGE ranges[2] = {};
+	ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0);	// b0 : Constant Buffer View
+	ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);	// t0 : Shader Resource View(Tex)
 
 	CD3DX12_ROOT_PARAMETER rootParameters[1] = {};
 	rootParameters[0].InitAsDescriptorTable(_countof(ranges), ranges, D3D12_SHADER_VISIBILITY_ALL);
@@ -162,9 +163,9 @@ BOOL CBasicMeshObject::CreateMesh()
 	// 삼각형의 지오메트리 정의
 	BasicVertex Vertices[] =
 	{
-		{ { 0.0f, 0.25f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f }, { 0.5f, 0.0f } },
-		{ { 0.25f, -0.25f, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
-		{ { -0.25f, -0.25f, 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f }, { 0.0f, 1.0f } }
+		{ { 0.0f, 0.25f, 0.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }, { 0.5f, 0.0f } },
+		{ { 0.25f, -0.25f, 0.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }, { 1.0f, 1.0f } },
+		{ { -0.25f, -0.25f, 0.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }, { 0.0f, 1.0f } }
 	};
 
 	const UINT VertexBufferSize = sizeof(Vertices);
@@ -181,16 +182,17 @@ lb_return:
 	return bResult;
 }
 
-void CBasicMeshObject::Draw(ID3D12GraphicsCommandList* pCommandList, const XMFLOAT2* pPos)
+void CBasicMeshObject::Draw(ID3D12GraphicsCommandList* pCommandList, const XMFLOAT2* pPos, D3D12_CPU_DESCRIPTOR_HANDLE srv)
 {
-	// 각각의 draw()작업의 무결성를 보장하려면 draw() 작업마다 다른 영역의 descriptor table(shader visible)과 다른 영역의 cbv를 사용해야 한다.
-	// 따라서 draw()할 때마다 CBV는 ConstantBuffer Pool로부터 할당 받고, 렌더링용 descriptor table(shader visivle)은 descriptor pool로 부터 할당 받는다.
+	// 각각의 draw()작업의 무결성을 보장하려면 draw() 작업마다 다른 영역의 descriptor table(shader visible)과 다른 영역의 CBV를 사용해야 한다.
+	// 따라서 draw()할 때마다 CBV는 ConstantBuffer Pool로부터 할당받고, 렌더리용 descriptor table(shader visible)은 descriptor pool로부터 할당 받는다.
 
-	ID3D12Device5* pD3DDevice = m_pRenderer->INL_GetD3DDevice();
+	ID3D12Device5* pD3DDeivce = m_pRenderer->INL_GetD3DDevice();
 	UINT srvDescriptorSize = m_pRenderer->INL_GetSrvDescriptorSize();
 	CDescriptorPool* pDescriptorPool = m_pRenderer->INL_GetDescriptorPool();
 	ID3D12DescriptorHeap* pDescriptorHeap = pDescriptorPool->INL_GetDescriptorHeap();
 	CSimpleConstantBufferPool* pConstantBufferPool = m_pRenderer->INL_GetConstantBufferPool();
+
 
 	CD3DX12_GPU_DESCRIPTOR_HANDLE gpuDescriptorTable = {};
 	CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorTable = {};
@@ -212,15 +214,23 @@ void CBasicMeshObject::Draw(ID3D12GraphicsCommandList* pCommandList, const XMFLO
 	pConstantBufferDefault->offset.x = pPos->x;
 	pConstantBufferDefault->offset.y = pPos->y;
 
-	// 루트 시그니처 세팅
+	// set RootSignature
 	pCommandList->SetGraphicsRootSignature(m_pRootSignature);
 
 	pCommandList->SetDescriptorHeaps(1, &pDescriptorHeap);
 
 	// 이번에 사용할 constant buffer의 descriptor를 렌더링용(shader visible) descriptor table에 카피
 	CD3DX12_CPU_DESCRIPTOR_HANDLE cbvDest(cpuDescriptorTable, BASIC_MESH_DESCRIPTOR_INDEX_CBV, srvDescriptorSize);
-	pD3DDevice->CopyDescriptorsSimple(1, cbvDest, pCB->CBVHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV); // cpu측 코드에서는 cpu descriptor handle에만 write가능
+	pD3DDeivce->CopyDescriptorsSimple(1, cbvDest, pCB->CBVHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);	// cpu측 코드에서는 cpu descriptor handle에만 write가능
 
+	// srv(texture)의 descriptor를 렌더링용(shader visible) descriptor table에 카피
+	if (srv.ptr)
+	{
+		CD3DX12_CPU_DESCRIPTOR_HANDLE srvDest(cpuDescriptorTable, BASIC_MESH_DESCRIPTOR_INDEX_TEX, srvDescriptorSize);
+		pD3DDeivce->CopyDescriptorsSimple(1, srvDest, srv, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);	// cpu측 코드에서는 cpu descriptor handle에만 write가능
+	}
+	// 
+	//CD3DX12_CPU_DESCRIPTOR_HANDLE
 	pCommandList->SetGraphicsRootDescriptorTable(0, gpuDescriptorTable);
 
 	pCommandList->SetPipelineState(m_pPipelineState);

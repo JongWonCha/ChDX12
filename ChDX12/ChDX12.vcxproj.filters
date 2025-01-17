@@ -79,6 +79,12 @@
     <ClInclude Include="SimpleConstantBufferPool.h">
       <Filter>Renderer\ConstantBufferPool</Filter>
     </ClInclude>
+    <ClInclude Include="SingleDescriptorAllocator.h">
+      <Filter>Renderer\SingleDescriptorAllocator</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\IndexCreator.h">
+      <Filter>Util</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ChDX12.rc">
@@ -123,6 +129,12 @@
     </ClCompile>
     <ClCompile Include="SimpleConstantBufferPool.cpp">
       <Filter>Renderer\ConstantBufferPool</Filter>
+    </ClCompile>
+    <ClCompile Include="SingleDescriptorAllocator.cpp">
+      <Filter>Renderer\SingleDescriptorAllocator</Filter>
+    </ClCompile>
+    <ClCompile Include="Util\IndexCreator.cpp">
+      <Filter>Util</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

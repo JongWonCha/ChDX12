@@ -20,7 +20,7 @@ BOOL CDescriptorPool::Initialize(ID3D12Device5* pD3DDevice, UINT MaxDescriptorCo
 	m_MaxDescriptorCount = MaxDescriptorCount;
 	m_srvDescriptorSize = m_pD3DDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-	// 叼胶农赋磐 赛 积己
+	// create descriptor heap
 	D3D12_DESCRIPTOR_HEAP_DESC commonHeapDesc = {};
 	commonHeapDesc.NumDescriptors = m_MaxDescriptorCount;
 	commonHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
@@ -30,9 +30,9 @@ BOOL CDescriptorPool::Initialize(ID3D12Device5* pD3DDevice, UINT MaxDescriptorCo
 		__debugbreak();
 		goto lb_return;
 	}
-
 	m_cpuDescriptorHandle = m_pDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 	m_gpuDescriptorHandle = m_pDescriptorHeap->GetGPUDescriptorHandleForHeapStart();
+	bResult = TRUE;
 lb_return:
 	return bResult;
 }

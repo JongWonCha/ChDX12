@@ -1,9 +1,10 @@
-
+Texture2D texDiffuse : register(t0);
+SamplerState samplerDiffuse : register(s0);
 
 cbuffer CONSTANT_BUFFER_DEFAULT : register(b0)
 {
-    float4 g_offset;
-}
+    float4 g_Offset;
+};
 
 struct VSInput
 {
@@ -24,7 +25,7 @@ PSInput VSMain(VSInput input)
     PSInput result = (PSInput) 0;
 
     result.position = input.Pos;
-    result.position.xy += g_offset.xy;
+    result.position.xy += g_Offset.xy;
     result.TexCoord = input.TexCoord;
     result.color = input.color;
     
@@ -33,5 +34,6 @@ PSInput VSMain(VSInput input)
 
 float4 PSMain(PSInput input) : SV_TARGET
 {
-    return input.color;
+    float4 texColor = texDiffuse.Sample(samplerDiffuse, input.TexCoord);
+    return texColor * input.color;
 }
