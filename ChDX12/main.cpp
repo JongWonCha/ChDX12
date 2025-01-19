@@ -26,10 +26,11 @@ void* g_pMeshObj = nullptr;
 void* g_pTexHandle0 = nullptr;
 void* g_pTexHandle1 = nullptr;
 
-float g_fOffsetX = 0.0f;
-float g_fOffsetY = 0.0f;
-float g_fSpeedX = 0.01f;
-float g_fSpeedY = 0.01f;
+float g_fRot0 = 0.0f;
+float g_fRot1 = 0.0f;
+
+XMMATRIX g_matWorld0 = {};
+XMMATRIX g_matWorld1 = {};
 
 ULONGLONG g_PrvFrameCheckTick = 0;
 ULONGLONG g_PrvUpdateTick = 0;
@@ -144,9 +145,9 @@ void RunGame()
     
 
     // 오브젝트 렌더링
-    g_pRenderer->RenderMeshObject(g_pMeshObj, g_fOffsetX, 0.0f, g_pTexHandle0);
+    g_pRenderer->RenderMeshObject(g_pMeshObj, &g_matWorld0, g_pTexHandle0);
 
-    g_pRenderer->RenderMeshObject(g_pMeshObj, 0.0f, g_fOffsetY, g_pTexHandle1);
+    g_pRenderer->RenderMeshObject(g_pMeshObj, &g_matWorld1, g_pTexHandle1);
     // end
     g_pRenderer->EndRender();
 
@@ -167,32 +168,47 @@ void RunGame()
 
 void Update()
 {
-    BOOL bDirChanged = FALSE;
-    g_fOffsetX += g_fSpeedX;
-    if (g_fOffsetX > 0.75f)
+    //
+    // world matrix 0
+    //
+    g_matWorld0 = XMMatrixIdentity();
+
+    // rotation 
+    XMMATRIX matRot0 = XMMatrixRotationX(g_fRot0);
+
+    // translation
+    XMMATRIX matTrans0 = XMMatrixTranslation(-0.15f, 0.0f, 0.25f);
+
+    // rot0 x trans0
+    g_matWorld0 = XMMatrixMultiply(matRot0, matTrans0);
+
+    //
+    // world matrix 1
+    //
+    g_matWorld1 = XMMatrixIdentity();
+
+    // world matrix 1
+    // rotation 
+    XMMATRIX matRot1 = XMMatrixRotationY(g_fRot1);
+
+    // translation
+    XMMATRIX matTrans1 = XMMatrixTranslation(0.15f, 0.0f, 0.25f);
+
+    // rot1 x trans1
+    g_matWorld1 = XMMatrixMultiply(matRot1, matTrans1);
+
+    BOOL	bChangeTex = FALSE;
+    g_fRot0 += 0.05f;
+    if (g_fRot0 > 2.0f * 3.1415f)
     {
-        g_fSpeedX *= -1.0f;
+        g_fRot0 = 0.0f;
+        bChangeTex = TRUE;
     }
-    if (g_fOffsetX < -0.75f)
+
+    g_fRot1 += 0.1f;
+    if (g_fRot1 > 2.0f * 3.1415f)
     {
-        g_fSpeedX *= -1.0f;
-    }
-    g_fOffsetY += g_fSpeedY;
-    if (g_fOffsetY > 0.75f)
-    {
-        g_fSpeedY *= -1.0f;
-        bDirChanged = TRUE;
-    }
-    if (g_fOffsetY < -0.75f)
-    {
-        g_fSpeedY *= -1.0f;
-        bDirChanged = TRUE;
-    }
-    if (bDirChanged)
-    {
-        void* pTemp = g_pTexHandle0;
-        g_pTexHandle0 = g_pTexHandle1;
-        g_pTexHandle1 = pTemp;
+        g_fRot1 = 0.0f;
     }
 }
 

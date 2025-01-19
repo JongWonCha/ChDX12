@@ -117,7 +117,7 @@ BOOL CBasicMeshObject::InitPipelineState()
 		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,	0, 28,	D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
 	};
 
-	// 이 과정에서 루트 시그니처가 필요하기 때문에 빈것이라도 루트 시그니처를 만든 것이다.
+	// Describe and create the graphics pipeline state object (PSO).
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
 	psoDesc.InputLayout = { inputElementDescs, _countof(inputElementDescs) };
 	psoDesc.pRootSignature = m_pRootSignature;
@@ -125,12 +125,16 @@ BOOL CBasicMeshObject::InitPipelineState()
 	psoDesc.PS = CD3DX12_SHADER_BYTECODE(pPixelShader->GetBufferPointer(), pPixelShader->GetBufferSize());
 	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
 	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-	psoDesc.DepthStencilState.DepthEnable = FALSE;
+	psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+	//psoDesc.DepthStencilState.DepthEnable = FALSE;
+	psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
 	psoDesc.DepthStencilState.StencilEnable = FALSE;
+	psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 	psoDesc.SampleMask = UINT_MAX;
 	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 	psoDesc.NumRenderTargets = 1;
 	psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	psoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
 	psoDesc.SampleDesc.Count = 1;
 	if (FAILED(pD3DDeivce->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_pPipelineState))))
 	{
@@ -163,14 +167,27 @@ BOOL CBasicMeshObject::CreateMesh()
 	// 삼각형의 지오메트리 정의
 	BasicVertex Vertices[] =
 	{
-		{ { 0.0f, 0.25f, 0.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }, { 0.5f, 0.0f } },
+		{ { -0.25f, 0.25f, 0.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }, { 0.0f, 0.0f } },
+		{ { 0.25f, 0.25f, 0.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }, { 1.0f, 0.0f } },
 		{ { 0.25f, -0.25f, 0.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }, { 1.0f, 1.0f } },
-		{ { -0.25f, -0.25f, 0.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }, { 0.0f, 1.0f } }
+		{ { -0.25f, -0.25f, 0.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }, { 0.0f, 1.0f } },
+	};
+
+	WORD Indices[] =
+	{
+		0, 1, 2,
+		0, 2, 3
 	};
 
 	const UINT VertexBufferSize = sizeof(Vertices);
 
 	if (FAILED(pResourceManager->CreateVertexBuffer(sizeof(BasicVertex), (DWORD)_countof(Vertices), &m_VertexBufferView, &m_pVertexBuffer, Vertices)))
+	{
+		__debugbreak();
+		goto lb_return;
+	}
+
+	if (FAILED(pResourceManager->CreateIndexBuffer((DWORD)_countof(Indices), &m_IndexBufferView, &m_pIndexBuffer, Indices)))
 	{
 		__debugbreak();
 		goto lb_return;
@@ -182,7 +199,7 @@ lb_return:
 	return bResult;
 }
 
-void CBasicMeshObject::Draw(ID3D12GraphicsCommandList* pCommandList, const XMFLOAT2* pPos, D3D12_CPU_DESCRIPTOR_HANDLE srv)
+void CBasicMeshObject::Draw(ID3D12GraphicsCommandList* pCommandList, const XMMATRIX* pMatWorld, D3D12_CPU_DESCRIPTOR_HANDLE srv)
 {
 	// 각각의 draw()작업의 무결성을 보장하려면 draw() 작업마다 다른 영역의 descriptor table(shader visible)과 다른 영역의 CBV를 사용해야 한다.
 	// 따라서 draw()할 때마다 CBV는 ConstantBuffer Pool로부터 할당받고, 렌더리용 descriptor table(shader visible)은 descriptor pool로부터 할당 받는다.
@@ -211,8 +228,11 @@ void CBasicMeshObject::Draw(ID3D12GraphicsCommandList* pCommandList, const XMFLO
 	CONSTANT_BUFFER_DEFAULT* pConstantBufferDefault = (CONSTANT_BUFFER_DEFAULT*)pCB->pSystemMemAddr;
 
 	// constant buffer의 내용을 설정
-	pConstantBufferDefault->offset.x = pPos->x;
-	pConstantBufferDefault->offset.y = pPos->y;
+	// view/proj matrix
+	m_pRenderer->GetViewProjMatrix(&pConstantBufferDefault->matView, &pConstantBufferDefault->matProj);
+
+	// world matrix
+	pConstantBufferDefault->matWorld = XMMatrixTranspose(*pMatWorld);
 
 	// set RootSignature
 	pCommandList->SetGraphicsRootSignature(m_pRootSignature);
@@ -236,7 +256,8 @@ void CBasicMeshObject::Draw(ID3D12GraphicsCommandList* pCommandList, const XMFLO
 	pCommandList->SetPipelineState(m_pPipelineState);
 	pCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	pCommandList->IASetVertexBuffers(0, 1, &m_VertexBufferView);
-	pCommandList->DrawInstanced(3, 1, 0, 0);
+	pCommandList->IASetIndexBuffer(&m_IndexBufferView);
+	pCommandList->DrawIndexedInstanced(6, 1, 0, 0, 0);
 }
 
 void CBasicMeshObject::Cleanup()
@@ -245,6 +266,11 @@ void CBasicMeshObject::Cleanup()
 	{
 		m_pVertexBuffer->Release();
 		m_pVertexBuffer = nullptr;
+	}
+	if (m_pIndexBuffer)
+	{
+		m_pIndexBuffer->Release();
+		m_pIndexBuffer = nullptr;
 	}
 	CleanupSharedResources();
 }

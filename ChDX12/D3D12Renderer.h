@@ -33,25 +33,36 @@ class CD3D12Renderer
 	DWORD			m_dwHeight = 0;
 
 	ID3D12Resource* m_pRenderTargets[SWAP_CHAIN_FRAME_COUNT] = {};
+	ID3D12Resource* m_pDepthStencil = nullptr;
 	ID3D12DescriptorHeap* m_pRTVHeap = nullptr;
 	ID3D12DescriptorHeap* m_pDSVHeap = nullptr;
 	ID3D12DescriptorHeap* m_pSRVHeap = nullptr;
 	UINT	m_rtvDescriptorSize = 0;
 	UINT	m_srvDescriptorSize = 0;
+	UINT	m_dsvDescriptorSize = 0;
 	UINT	m_dwSwapChainFlags = 0;
 	UINT	m_uiRenderTargetIndex = 0;
 	HANDLE	m_hFenceEvent = nullptr;
 	ID3D12Fence* m_pFence = nullptr;
 
 
-	DWORD	m_dwCurContextIndex = 0;
+	DWORD		m_dwCurContextIndex = 0;
+	XMMATRIX	m_matView = {};
+	XMMATRIX	m_matProj = {};
+
+	void	InitCamera();
+
+	BOOL CreateDepthStencil(UINT Width, UINT Height);
 
 	void	CreateFence();
 	void	CleanupFence();
 	void	CreateCommandList();
 	void	CleanupCommandList();
 	BOOL	CreateDescriptorHeapForRTV();
+	BOOL	CreateDescriptorHeapForDSV();
+
 	void	CleanupDescriptorHeapForRTV();
+	void	CleanupDescriptorHeapForDSV();
 
 	UINT64	Fence();
 	void	WaitForFenceValue();
@@ -69,9 +80,9 @@ public:
 	void	DeleteBasicMeshObject(void* pMeshObjHandle);
 
 	void*	CreateTiledTexture(UINT TexWidth, UINT TexHeight, DWORD r, DWORD g, DWORD b);
-	void DeleteTexture(void * pHandle);
+	void	DeleteTexture(void * pHandle);
 
-	void	RenderMeshObject(void* pMeshObjHandle, float x_offset, float y_offset, void* pTexHandle);
+	void RenderMeshObject(void* pMeshObjHandle, const XMMATRIX* pMatWorld, void* pTexHandle);
 
 	// for internal
 	ID3D12Device5* INL_GetD3DDevice() const { return m_pD3DDevice; }
@@ -80,6 +91,7 @@ public:
 	CSimpleConstantBufferPool* INL_GetConstantBufferPool() { return m_pConstantBufferPool; }
 	UINT INL_GetSrvDescriptorSize() { return m_srvDescriptorSize; }
 	CSingleDescriptorAllocator* INL_GetSingleDescriptorAllocator() { return m_pSingleDescriptorAllocator; }
+	void	GetViewProjMatrix(XMMATRIX* pOutMatView, XMMATRIX* pOutMatProj);
 	CD3D12Renderer();
 	~CD3D12Renderer();
 };

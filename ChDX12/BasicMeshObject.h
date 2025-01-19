@@ -25,6 +25,10 @@ private:
 	ID3D12Resource* m_pVertexBuffer = nullptr;
 	D3D12_VERTEX_BUFFER_VIEW m_VertexBufferView = {};
 
+	// 인덱스 데이터
+	ID3D12Resource* m_pIndexBuffer = nullptr;
+	D3D12_INDEX_BUFFER_VIEW m_IndexBufferView = {};
+
 	BOOL InitCommonResources();
 	void CleanupSharedResources();
 
@@ -35,7 +39,7 @@ private:
 
 public:
 	BOOL Initialize(CD3D12Renderer* pRenderer);
-	void Draw(ID3D12GraphicsCommandList* pCommandList, const XMFLOAT2* pPos, D3D12_CPU_DESCRIPTOR_HANDLE srv);
+	void Draw(ID3D12GraphicsCommandList* pCommandList, const XMMATRIX* pMatWorld, D3D12_CPU_DESCRIPTOR_HANDLE srv);
 	BOOL CreateMesh();
 
 	CBasicMeshObject();

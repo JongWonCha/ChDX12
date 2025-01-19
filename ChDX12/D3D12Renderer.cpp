@@ -183,6 +183,10 @@ lb_exit:
 
 	m_srvDescriptorSize = m_pD3DDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
+	// Create Depth Stencil resources
+	CreateDescriptorHeapForDSV();
+	CreateDepthStencil(m_dwWidth, m_dwHeight);
+
 	CreateCommandList();
 
 	// Create synchronization objects.
@@ -199,6 +203,8 @@ lb_exit:
 
 	m_pSingleDescriptorAllocator = new CSingleDescriptorAllocator;
 	m_pSingleDescriptorAllocator->Initialize(m_pD3DDevice, MAX_DESCRIPTOR_COUNT, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
+
+	InitCamera();
 
 	bResult = TRUE;
 lb_return:
@@ -218,6 +224,77 @@ lb_return:
 		pFactory = nullptr;
 	}
 	return bResult;
+}
+
+void CD3D12Renderer::InitCamera()
+{
+	// 카메라 위치, 카메라 방향, 위 쪽 방향 설정
+	XMVECTOR eyePos = XMVectorSet(0.0f, 0.0f, -1.0f, 1.0f);	// 카메라 위치
+	XMVECTOR eyeDir = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);	// 카메라 방향 (정면을 향하도록 설정)
+	XMVECTOR upDir = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);	// 위쪽 방향 (일반적으로 y축을 따라 설정)
+
+	// view Matrix
+	m_matView = XMMatrixLookToLH(eyePos, eyeDir, upDir);
+
+	// 시야각 (FOV) 설정 (라디안 단위)
+	float fovY = XM_PIDIV4;
+
+	// projection matrix
+	float fAspectRatio = (float)m_dwWidth / (float)m_dwHeight;
+	float fNear = 0.1f;
+	float fFar = 1000.0f;
+	m_matProj = XMMatrixPerspectiveFovLH(fovY, fAspectRatio, fNear, fFar);
+}
+
+void CD3D12Renderer::GetViewProjMatrix(XMMATRIX* pOutMatView, XMMATRIX* pOutMatProj)
+{
+	*pOutMatView = XMMatrixTranspose(m_matView);
+	*pOutMatProj = XMMatrixTranspose(m_matProj);
+}
+
+BOOL CD3D12Renderer::CreateDepthStencil(UINT Width, UINT Height)
+{
+	// Create the depth stencil view.
+	D3D12_DEPTH_STENCIL_VIEW_DESC depthStencilDesc = {};
+	depthStencilDesc.Format = DXGI_FORMAT_D32_FLOAT;
+	depthStencilDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+	depthStencilDesc.Flags = D3D12_DSV_FLAG_NONE;
+
+	D3D12_CLEAR_VALUE depthOptimizedClearValue = {};
+	depthOptimizedClearValue.Format = DXGI_FORMAT_D32_FLOAT;
+	depthOptimizedClearValue.DepthStencil.Depth = 1.0f;
+	depthOptimizedClearValue.DepthStencil.Stencil = 0;
+
+	CD3DX12_RESOURCE_DESC depthDesc(
+		D3D12_RESOURCE_DIMENSION_TEXTURE2D,
+		0,
+		Width,
+		Height,
+		1,
+		1,
+		DXGI_FORMAT_R32_TYPELESS,
+		1,
+		0,
+		D3D12_TEXTURE_LAYOUT_UNKNOWN,
+		D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL);
+
+	if (FAILED(m_pD3DDevice->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+		D3D12_HEAP_FLAG_NONE,
+		&depthDesc,
+		D3D12_RESOURCE_STATE_DEPTH_WRITE,
+		&depthOptimizedClearValue,
+		IID_PPV_ARGS(&m_pDepthStencil)
+	)))
+	{
+		__debugbreak();
+	}
+	m_pDepthStencil->SetName(L"CD3D12Renderer::m_pDepthStencil");
+
+	CD3DX12_CPU_DESCRIPTOR_HANDLE	dsvHandle(m_pDSVHeap->GetCPUDescriptorHandleForHeapStart());
+	m_pD3DDevice->CreateDepthStencilView(m_pDepthStencil, &depthStencilDesc, dsvHandle);
+
+	return TRUE;
 }
 
 BOOL CD3D12Renderer::UpdateWindowSize(DWORD dwBackBufferWidth, DWORD dwBackBufferHeight)
@@ -282,16 +359,19 @@ void CD3D12Renderer::BeginRender()
 
 	m_pCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_pRenderTargets[m_uiRenderTargetIndex], D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
 
+	CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_pDSVHeap->GetCPUDescriptorHandleForHeapStart());
+
 	// Record commands.
 	const float BackColor[] = { 0.2f, 0.2f, 0.2f, 1.0f };
 	m_pCommandList->ClearRenderTargetView(rtvHandle, BackColor, 0, nullptr);
+	m_pCommandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
 	m_pCommandList->RSSetViewports(1, &m_Viewport);
 	m_pCommandList->RSSetScissorRects(1, &m_ScissorRect);
-	m_pCommandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
+	m_pCommandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
 }
 
-void CD3D12Renderer::RenderMeshObject(void* pMeshObjHandle, float x_offset, float y_offset, void* pTexHandle)
+void CD3D12Renderer::RenderMeshObject(void* pMeshObjHandle, const XMMATRIX* pMatWorld, void* pTexHandle)
 {
 	D3D12_CPU_DESCRIPTOR_HANDLE srv = {};
 	CBasicMeshObject* pMeshObj = (CBasicMeshObject*)pMeshObjHandle;
@@ -299,8 +379,7 @@ void CD3D12Renderer::RenderMeshObject(void* pMeshObjHandle, float x_offset, floa
 	{
 		srv = ((TEXTURE_HANDLE*)pTexHandle)->srv;
 	}
-	XMFLOAT2	Pos = { x_offset, y_offset };
-	pMeshObj->Draw(m_pCommandList, &Pos, srv);
+	pMeshObj->Draw(m_pCommandList, pMatWorld, srv);
 }
 
 void CD3D12Renderer::EndRender()
@@ -495,6 +574,8 @@ void CD3D12Renderer::CleanupCommandList()
 		m_pCommandAllocator = nullptr;
 	}
 }
+
+
 void CD3D12Renderer::CreateFence()
 {
 	// Create synchronization objects and wait until assets have been uploaded to the GPU.
@@ -539,6 +620,25 @@ BOOL CD3D12Renderer::CreateDescriptorHeapForRTV()
 
 	return TRUE;
 }
+
+BOOL CD3D12Renderer::CreateDescriptorHeapForDSV()
+{
+	HRESULT hr = S_OK;
+
+	// Describe and create a depth stencil view (DSV) descriptor heap.
+	D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {};
+	dsvHeapDesc.NumDescriptors = 1; // Default depth buffer
+	dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+	dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	if (FAILED(m_pD3DDevice->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&m_pDSVHeap))))
+	{
+		__debugbreak();
+	}
+
+	m_dsvDescriptorSize = m_pD3DDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+	return TRUE;
+}
+
 void CD3D12Renderer::CleanupDescriptorHeapForRTV()
 {
 	if (m_pRTVHeap)
@@ -547,6 +647,16 @@ void CD3D12Renderer::CleanupDescriptorHeapForRTV()
 		m_pRTVHeap = nullptr;
 	}
 }
+
+void CD3D12Renderer::CleanupDescriptorHeapForDSV()
+{
+	if (m_pDSVHeap)
+	{
+		m_pDSVHeap->Release();
+		m_pDSVHeap = nullptr;
+	}
+}
+
 void CD3D12Renderer::Cleanup()
 {
 	WaitForFenceValue();
@@ -576,6 +686,7 @@ void CD3D12Renderer::Cleanup()
 	}
 
 	CleanupDescriptorHeapForRTV();
+	CleanupDescriptorHeapForDSV();
 
 	for (DWORD i = 0; i < SWAP_CHAIN_FRAME_COUNT; i++)
 	{
@@ -595,6 +706,12 @@ void CD3D12Renderer::Cleanup()
 	{
 		m_pCommandQueue->Release();
 		m_pCommandQueue = nullptr;
+	}
+
+	if (m_pDepthStencil)
+	{
+		m_pDepthStencil->Release();
+		m_pDepthStencil = nullptr;
 	}
 
 	CleanupCommandList();
